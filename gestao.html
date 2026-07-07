@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="theme-color" content="#e87a2a">
+    <title>Pastoral Familiar - Gestão</title>
+    
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        /* ============================================
+           ESTILOS COMPLETOS - GESTÃO
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d4 100%);
+            min-height: 100vh;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .app-container {
+            max-width: 1280px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 24px 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+        }
+
+        .nav-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 24px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid rgba(200, 180, 160, 0.3);
+            position: relative;
+        }
+
+        .nav-bar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, #e87a2a, #c9a87a);
+        }
+
+        .nav-logo-text {
+            font-weight: 700;
+            font-size: 28px;
+            background: linear-gradient(135deg, #2a4a6a, #e87a2a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-logo-text span {
+            display: block;
+            font-weight: 300;
+            font-size: 14px;
+            color: #8a7a6a;
+            -webkit-text-fill-color: #8a7a6a;
+        }
+
+        h2 {
+            font-weight: 700;
+            color: #2a4a6a;
+            font-size: 24px;
+            margin-bottom: 18px;
+        }
+
+        h3 {
+            font-weight: 600;
+            color: #4a3a2a;
+            font-size: 17px;
+            margin: 10px 0 6px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ===== LOGIN ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            animation: fadeInOverlay 0.3s ease;
+        }
+
+        @keyframes fadeInOverlay {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .modal-overlay.ativo {
+            display: flex;
+        }
+
+        .modal-login {
+            background: linear-gradient(145deg, #ffffff, #f5f0e8);
+            border-radius: 32px;
+            padding: 40px 32px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+            animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes modalPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-login h3 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #2a4a6a;
+            text-align: center;
+        }
+
+        .modal-login p {
+            text-align: center;
+            color: #6a5a4a;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal-login input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 16px;
+            border: 2px solid rgba(200, 180, 160, 0.4);
+            font-size: 16px;
+            background: white;
+            transition: 0.3s;
+            margin: 8px 0;
+        }
+
+        .modal-login input:focus {
+            border-color: #e87a2a;
+            box-shadow: 0 0 0 4px rgba(232, 122, 42, 0.1);
+            outline: none;
+        }
+
+        .modal-login .erro-login {
+            color: #b05a3a;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 8px;
+            display: none;
+        }
+
+        /* ===== BOTÕES ===== */
+        .btn {
+            background: rgba(200, 185, 170, 0.4);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-weight: 600;
+            color: #4a3a2a;
+            border: 1px solid rgba(200, 180, 160, 0.3);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .btn:active {
+            transform: scale(0.94);
+        }
+
+        .btn-primario {
+            background: linear-gradient(135deg, #2a4a6a, #4a7a9a);
+            border-color: #2a4a6a;
+            color: white;
+            box-shadow: 0 4px 16px rgba(42, 74, 106, 0.25);
+        }
+
+        .btn-primario:hover {
+            box-shadow: 0 8px 24px rgba(42, 74, 106, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #2a7a4a, #4a9a6a);
+            border-color: #1a5a3a;
+            color: white;
+            box-shadow: 0 4px 16px rgba(42, 122, 74, 0.25);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 8px 24px rgba(42, 122, 74, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #b05a3a, #c96a4a);
+            border-color: #8f4747;
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #e87a2a, #f09a4a);
+            border-color: #c96a1a;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(200, 185, 170, 0.5);
+            border-color: rgba(200, 180, 160, 0.3);
+        }
+
+        .btn-bloqueio {
+            background: linear-gradient(135deg, #b05a3a, #c96a4a);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 60px;
+            font-size: 15px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(176, 90, 58, 0.25);
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .btn-bloqueio:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(176, 90, 58, 0.35);
+        }
+
+        .btn-bloqueio:active {
+            transform: scale(0.95);
+        }
+
+        .btn-bloqueio.bloqueado {
+            background: linear-gradient(135deg, #2a7a4a, #4a9a6a);
+            box-shadow: 0 4px 16px rgba(42, 122, 74, 0.25);
+        }
+
+        .btn-bloqueio.bloqueado:hover {
+            box-shadow: 0 8px 24px rgba(42, 122, 74, 0.35);
+        }
+
+        .grupo-botoes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        /* ===== CONFIGURAÇÃO ===== */
+        .config-area {
+            background: linear-gradient(145deg, #f0ece6, #e8e0d4);
+            border-radius: 20px;
+            padding: 20px;
+            margin: 16px 0;
+            border: 1px solid rgba(200, 180, 160, 0.4);
+        }
+
+        .config-area input[type="text"],
+        .config-area input[type="file"],
+        .config-area input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 2px solid rgba(200, 180, 160, 0.4);
+            font-size: 14px;
+            background: white;
+            transition: 0.3s;
+            margin: 8px 0;
+        }
+
+        .config-area input[type="text"]:focus,
+        .config-area input[type="number"]:focus {
+            border-color: #e87a2a;
+            box-shadow: 0 0 0 4px rgba(232, 122, 42, 0.1);
+            outline: none;
+        }
+
+        .config-area .campo-duplo {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .config-area .campo-duplo .campo {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .config-area .campo-duplo .campo label {
+            display: block;
+            font-weight: 500;
+            color: #4a3a2a;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .config-area .campo-duplo .campo input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            border: 2px solid rgba(200, 180, 160, 0.4);
+            font-size: 14px;
+            background: white;
+            transition: 0.3s;
+        }
+
+        .config-area .campo-duplo .campo input:focus {
+            border-color: #e87a2a;
+            box-shadow: 0 0 0 4px rgba(232, 122, 42, 0.1);
+            outline: none;
+        }
+
+        .config-area .preview-qr {
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .config-area .preview-qr img {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 12px;
+            border: 2px solid rgba(200, 180, 160, 0.4);
+        }
+
+        /* ===== EDIÇÃO DE PRODUTOS ===== */
+        .produto-edit-item {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin: 10px 0;
+            border: 1px solid rgba(200, 180, 160, 0.3);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .produto-edit-item .campo {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .produto-edit-item .campo label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6a5a4a;
+            margin-bottom: 2px;
+        }
+
+        .produto-edit-item .campo input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(200, 180, 160, 0.3);
+            font-size: 14px;
+            background: #faf8f5;
+            transition: 0.3s;
+        }
+
+        .produto-edit-item .campo input:focus {
+            border-color: #e87a2a;
+            outline: none;
+            background: white;
+        }
+
+        .produto-edit-item .campo input[type="file"] {
+            padding: 6px;
+            background: white;
+        }
+
+        .produto-edit-item .preview-mini {
+            width: 60px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #e8e0d4;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .produto-edit-item .preview-mini img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .produto-edit-item .preview-mini span {
+            font-size: 20px;
+            color: #8a7a6a;
+        }
+
+        /* ===== LISTA DE VENDAS ===== */
+        .lista-vendas-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .venda-item-vertical {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            border-left: 4px solid #e87a2a;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .venda-item-vertical .venda-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .venda-item-vertical .venda-id {
+            font-weight: 700;
+            font-size: 16px;
+            color: #2a4a6a;
+        }
+
+        .venda-item-vertical .venda-total {
+            font-weight: 700;
+            font-size: 16px;
+            color: #e87a2a;
+        }
+
+        .venda-item-vertical .venda-detalhes {
+            font-size: 14px;
+            color: #4a3a2a;
+        }
+
+        .venda-item-vertical .venda-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .venda-item-vertical .venda-actions .btn {
+            padding: 6px 16px;
+            font-size: 13px;
+        }
+
+        .badge-status {
+            background: #e8e0d4;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .badge-pago {
+            background: linear-gradient(135deg, #7aaa7a, #5a8a5a);
+            color: white;
+        }
+
+        .info-box {
+            background: linear-gradient(145deg, #f0ece6, #e8e0d4);
+            padding: 16px 20px;
+            border-radius: 20px;
+            margin: 12px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid rgba(200, 180, 160, 0.3);
+        }
+
+        .info-box .label {
+            font-weight: 600;
+            color: #4a3a2a;
+            font-size: 14px;
+        }
+
+        .info-box .valor {
+            background: white;
+            padding: 6px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            color: #e87a2a;
+            font-size: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .tabela-total-produtos {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .tabela-total-produtos th {
+            background: linear-gradient(135deg, #2a4a6a, #4a7a9a);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .tabela-total-produtos td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(200, 180, 160, 0.3);
+            background: white;
+        }
+
+        .tabela-total-produtos tr:hover td {
+            background: #f5f0e8;
+        }
+
+        .tabela-total-produtos .total-geral {
+            font-weight: 700;
+            background: #f0ece6;
+            border-top: 2px solid #e87a2a;
+        }
+
+        .tabela-total-produtos .total-geral td {
+            font-size: 16px;
+            color: #e87a2a;
+        }
+
+        .scroll-container {
+            overflow-x: auto;
+            margin: 8px 0;
+            border-radius: 20px;
+        }
+
+        .status-conexao {
+            text-align: center;
+            font-size: 12px;
+            color: #8a7a6a;
+            padding: 8px;
+            margin-top: 10px;
+            border-top: 1px solid rgba(200, 180, 160, 0.2);
+        }
+
+        .status-conexao .online {
+            color: #2a7a4a;
+        }
+
+        .status-conexao .offline {
+            color: #b05a3a;
+        }
+
+        /* ===== RESPONSIVO ===== */
+        @media (max-width: 600px) {
+            .app-container {
+                padding: 14px 10px;
+                border-radius: 24px;
+            }
+
+            .nav-logo-text {
+                font-size: 22px;
+            }
+
+            .nav-logo-text span {
+                font-size: 12px;
+            }
+
+            .modal-login {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+
+            .modal-login h3 {
+                font-size: 20px;
+            }
+
+            .config-area .campo-duplo {
+                flex-direction: column;
+            }
+
+            .config-area .campo-duplo .campo {
+                min-width: 100%;
+            }
+
+            .produto-edit-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .produto-edit-item .preview-mini {
+                align-self: center;
+            }
+
+            .venda-item-vertical .venda-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .tabela-total-produtos {
+                font-size: 12px;
+            }
+
+            .tabela-total-produtos th,
+            .tabela-total-produtos td {
+                padding: 8px 6px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            .modal-login {
+                padding: 24px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navegação -->
+        <div class="nav-bar">
+            <div class="nav-logo-text">
+                Pastoral Familiar
+                <span>Painel de Gestão</span>
+            </div>
+        </div>
+
+        <!-- Conteúdo (escondido até login) -->
+        <div id="conteudoGestao" class="hidden">
+            <h2>Gestão de Vendas</h2>
+
+            <!-- Configuração Geral -->
+            <div class="config-area">
+                <h3 style="margin-bottom:8px;">Configuração Pix</h3>
+                
+                <div class="campo-duplo">
+                    <div class="campo">
+                        <label>Chave Pix:</label>
+                        <input type="text" id="inputChavePix" placeholder="Digite a chave Pix">
+                    </div>
+                    <div class="campo">
+                        <label>Titular da Chave:</label>
+                        <input type="text" id="inputTitularPix" placeholder="Nome do titular">
+                    </div>
+                </div>
+
+                <label style="font-weight:500; color:#4a3a2a; font-size:14px; margin-top:8px; display:block;">Imagem QR Code:</label>
+                <input type="file" id="inputQRCode" accept="image/*">
+                <div class="preview-qr" id="previewQR"></div>
+
+                <button class="btn btn-primario" id="btnSalvarConfig" style="margin-top:12px;">Salvar Configurações</button>
+            </div>
+
+            <!-- Edição de Produtos -->
+            <div class="config-area">
+                <h3 style="margin-bottom:8px;">Editar Produtos</h3>
+                <div id="areaEdicaoProdutos"></div>
+                
+                <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-success" id="btnAdicionarProduto" style="flex:1;">+ Adicionar Novo Produto</button>
+                    <button class="btn btn-primario" id="btnSalvarProdutos" style="flex:1;">Salvar Produtos</button>
+                </div>
+            </div>
+
+            <!-- Controle de Bloqueio -->
+            <div class="config-area">
+                <h3 style="margin-bottom:8px;">🔒 Controle de Bloqueio</h3>
+                <button class="btn-bloqueio" id="btnBloqueio">🔒 Bloquear Atendimento</button>
+                <p style="font-size:12px; color:#6a5a4a; margin-top:6px; text-align:center;">
+                    ⚠️ Ao bloquear, o sistema de atendimento ficará INACESSÍVEL para todos os usuários
+                </p>
+            </div>
+
+            <!-- Lista de Vendas -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px;">
+                <h3 style="margin:0;">📋 Vendas Realizadas</h3>
+                <button class="btn btn-danger" id="btnExcluirTodasVendas">🗑️ Excluir Todas as Vendas</button>
+            </div>
+            <div id="listaVendasVertical" class="lista-vendas-vertical"></div>
+
+            <!-- Resumo -->
+            <div class="info-box">
+                <span class="label">💰 Total de Vendas:</span>
+                <span class="valor" id="totalVendas">R$ 0,00</span>
+                <span class="label" style="margin-left:12px;">📦 Quantidade:</span>
+                <span class="valor" id="quantidadeVendida">0</span>
+            </div>
+            
+            <!-- Total por Produto -->
+            <h3 style="margin-top:16px;">📊 Total por Produto</h3>
+            <div class="scroll-container">
+                <table class="tabela-total-produtos">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th style="text-align:center;">Quantidade</th>
+                            <th style="text-align:right;">Valor Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTotalProdutos">
+                        <tr>
+                            <td colspan="3" style="text-align:center; color:#8a7a6a; padding:20px;">Nenhuma venda registrada</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Status -->
+            <div class="status-conexao">
+                Status: <span id="statusConexao" class="online">🟢 Conectado</span>
+            </div>
+        </div>
+
+        <!-- Modal Login -->
+        <div class="modal-overlay" id="modalLogin">
+            <div class="modal-login">
+                <h3>🔐 Acesso à Gestão</h3>
+                <p>Digite suas credenciais para acessar a área administrativa</p>
+                <input type="text" id="inputLogin" placeholder="Usuário" value="admin">
+                <input type="password" id="inputSenha" placeholder="Senha" value="admin0313">
+                <div class="erro-login" id="erroLogin">❌ Usuário ou senha incorretos!</div>
+                <button class="btn btn-primario" id="btnLogin">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURAÇÃO DO SUPABASE
+        // ============================================
+        const SUPABASE_URL = 'https://ysdfnaoyyeplvxxgzvhv.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZGZuYW95eWVwbHZ4eGd6dmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjIyOTYsImV4cCI6MjA5ODU5ODI5Nn0._5A6tieplyU7Oy2DPV93kUYAJLd4caevKLnS8ZuOu54';
+
+        // Inicialização correta do cliente Supabase
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ============================================
+        // ESTADO DO SISTEMA
+        // ============================================
+        let produtos = [];
+        let vendas = [];
+        let chavePix = '';
+        let titularPix = '';
+        let qrCodeImage = '';
+        let sistemaBloqueado = false;
+        let loginAutenticado = false;
+
+        // ============================================
+        // REFERÊNCIAS DOM
+        // ============================================
+        const conteudoGestao = document.getElementById('conteudoGestao');
+        const modalLogin = document.getElementById('modalLogin');
+        const inputLogin = document.getElementById('inputLogin');
+        const inputSenha = document.getElementById('inputSenha');
+        const erroLogin = document.getElementById('erroLogin');
+        const listaVendasVertical = document.getElementById('listaVendasVertical');
+        const totalVendas = document.getElementById('totalVendas');
+        const quantidadeVendida = document.getElementById('quantidadeVendida');
+        const corpoTotalProdutos = document.getElementById('corpoTotalProdutos');
+        const areaEdicaoProdutos = document.getElementById('areaEdicaoProdutos');
+        const inputChavePix = document.getElementById('inputChavePix');
+        const inputTitularPix = document.getElementById('inputTitularPix');
+        const inputQRCode = document.getElementById('inputQRCode');
+        const previewQR = document.getElementById('previewQR');
+        const btnBloqueio = document.getElementById('btnBloqueio');
+        const statusConexao = document.getElementById('statusConexao');
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        function formatarPreco(val) {
+            return 'R$ ' + val.toFixed(2);
+        }
+
+        function getPagamentoLabel(pagamento) {
+            const map = { pix: 'Pix', cartao: 'Cartão', dinheiro: 'Dinheiro' };
+            return map[pagamento] || pagamento;
+        }
+
+        function atualizarStatusConexao(online) {
+            if (online) {
+                statusConexao.textContent = '🟢 Conectado';
+                statusConexao.className = 'online';
+            } else {
+                statusConexao.textContent = '🔴 Offline';
+                statusConexao.className = 'offline';
+            }
+        }
+
+        // ============================================
+        // CARREGAR DADOS DO SUPABASE
+        // ============================================
+        async function carregarDados() {
+            try {
+                // Carregar produtos
+                const { data: produtosData, error: produtosError } = await _supabase
+                    .from('produtos')
+                    .select('*')
+                    .order('id');
+
+                if (produtosError) throw produtosError;
+
+                if (produtosData) {
+                    produtos = produtosData;
+                }
+
+                // Carregar configurações
+                const { data: configData, error: configError } = await _supabase
+                    .from('config')
+                    .select('*');
+
+                if (configError) throw configError;
+
+                if (configData) {
+                    configData.forEach(item => {
+                        if (item.chave === 'chavePix') chavePix = item.valor;
+                        if (item.chave === 'titularPix') titularPix = item.valor;
+                        if (item.chave === 'qrCodeImage') {
+                            qrCodeImage = item.valor;
+                            if (qrCodeImage && qrCodeImage !== '') {
+                                previewQR.innerHTML = `<img src="${qrCodeImage}" alt="QR Code">`;
+                            }
+                        }
+                        if (item.chave === 'sistemaBloqueado') {
+                            sistemaBloqueado = item.valor === 'true';
+                            atualizarBotaoBloqueio();
+                        }
+                    });
+                }
+
+                // Carregar vendas
+                const { data: vendasData, error: vendasError } = await _supabase
+                    .from('vendas')
+                    .select('*')
+                    .order('data', { ascending: false });
+
+                if (vendasError) throw vendasError;
+
+                if (vendasData) {
+                    vendas = vendasData;
+                }
+
+                // Atualizar interfaces
+                inputChavePix.value = chavePix;
+                inputTitularPix.value = titularPix;
+                renderizarEdicaoProdutos();
+                atualizarGestao();
+                
+                console.log('✅ Dados carregados do Supabase!');
+                atualizarStatusConexao(true);
+            } catch (error) {
+                console.error('❌ Erro ao carregar dados:', error);
+                atualizarStatusConexao(false);
+                alert('Erro ao carregar dados. Verifique sua conexão.');
+            }
+        }
+
+        // ============================================
+        // ATUALIZAR BOTÃO DE BLOQUEIO
+        // ============================================
+        function atualizarBotaoBloqueio() {
+            if (sistemaBloqueado) {
+                btnBloqueio.textContent = '🔓 Desbloquear Atendimento';
+                btnBloqueio.classList.add('bloqueado');
+            } else {
+                btnBloqueio.textContent = '🔒 Bloquear Atendimento';
+                btnBloqueio.classList.remove('bloqueado');
+            }
+        }
+
+        // ============================================
+        // RENDER EDIÇÃO PRODUTOS
+        // ============================================
+        function renderizarEdicaoProdutos() {
+            areaEdicaoProdutos.innerHTML = '';
+            if (!produtos || produtos.length === 0) {
+                areaEdicaoProdutos.innerHTML = '<p style="text-align:center; color:#8a7a6a; padding:20px;">Nenhum produto cadastrado</p>';
+                return;
+            }
+
+            produtos.forEach((p) => {
+                const div = document.createElement('div');
+                div.className = 'produto-edit-item';
+                div.innerHTML = `
+                    <div class="preview-mini">
+                        ${p.imagem ? `<img src="${p.imagem}" alt="${p.nome}">` : `<span>${p.nome.charAt(0)}</span>`}
+                    </div>
+                    <div class="campo">
+                        <label>Nome</label>
+                        <input type="text" class="edit-nome" value="${p.nome}" data-id="${p.id}">
+                    </div>
+                    <div class="campo">
+                        <label>Preço (R$)</label>
+                        <input type="number" class="edit-preco" value="${p.preco}" step="0.01" min="0" data-id="${p.id}">
+                    </div>
+                    <div class="campo">
+                        <label>Imagem</label>
+                        <input type="file" class="edit-imagem" accept="image/*" data-id="${p.id}">
+                    </div>
+                    <button class="btn btn-danger btn-remover-produto" data-id="${p.id}" style="padding:6px 16px; font-size:13px;">Remover</button>
+                `;
+                areaEdicaoProdutos.appendChild(div);
+            });
+
+            // Eventos para upload de imagem
+            document.querySelectorAll('.edit-imagem').forEach(input => {
+                input.addEventListener('change', function(e) {
+                    const id = parseInt(this.dataset.id);
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const produto = produtos.find(p => p.id === id);
+                            if (produto) {
+                                produto.imagem = event.target.result;
+                                renderizarEdicaoProdutos();
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            });
+
+            // Eventos para remover produto
+            document.querySelectorAll('.btn-remover-produto').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = parseInt(this.dataset.id);
+                    const prod = produtos.find(p => p.id === id);
+                    if (prod && confirm(`Remover o produto "${prod.nome}"?`)) {
+                        try {
+                            const { error } = await _supabase.from('produtos').delete().eq('id', id);
+                            if (error) throw error;
+                            produtos = produtos.filter(p => p.id !== id);
+                            renderizarEdicaoProdutos();
+                            atualizarTotalProdutos();
+                        } catch (err) {
+                            console.error('Erro ao remover produto:', err);
+                            alert('Erro ao remover produto do banco de dados.');
+                        }
+                    }
+                });
+            });
+        }
+
+        // ============================================
+        // ATUALIZAR GESTÃO
+        // ============================================
+        function atualizarGestao() {
+            if (vendas.length === 0) {
+                listaVendasVertical.innerHTML = '<div style="padding:20px; text-align:center; color:#8a7a6a; font-size:14px;">Nenhuma venda registrada</div>';
+                totalVendas.textContent = 'R$ 0,00';
+                quantidadeVendida.textContent = '0';
+                atualizarTotalProdutos();
+                return;
+            }
+
+            let html = '';
+            let totalGeral = 0;
+            let qtdTotal = 0;
+
+            vendas.forEach(v => {
+                const itensStr = v.itens.map(i => `${i.nome}(${i.quantidade})`).join(', ');
+                const statusClass = v.status === 'pago' ? 'badge-pago' : '';
+                const statusText = v.status === 'pago' ? 'Pago' : 'Pendente';
+                const dataFormatada = v.data ? new Date(v.data).toLocaleString('pt-BR') : 'Data não disponível';
+
+                html += `
+                    <div class="venda-item-vertical">
+                        <div class="venda-header">
+                            <span class="venda-id">#${v.id}</span>
+                            <span class="venda-total">${formatarPreco(v.total)}</span>
+                            <span class="badge-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="venda-detalhes">
+                            <strong>Produtos:</strong> ${itensStr}<br>
+                            <strong>Pagamento:</strong> ${getPagamentoLabel(v.pagamento) || '-'}<br>
+                            <strong>Data:</strong> ${dataFormatada}
+                        </div>
+                        <div class="venda-actions">
+                            <button class="btn btn-danger" data-id="${v.id}" data-acao="excluir" style="padding:4px 14px; font-size:13px;">Excluir</button>
+                        </div>
+                    </div>
+                `;
+                totalGeral += v.total;
+                v.itens.forEach(item => {
+                    qtdTotal += item.quantidade;
+                });
+            });
+
+            listaVendasVertical.innerHTML = html;
+            totalVendas.textContent = formatarPreco(totalGeral);
+            quantidadeVendida.textContent = qtdTotal;
+            atualizarTotalProdutos();
+        }
+
+        // ============================================
+        // TOTAL POR PRODUTO
+        // ============================================
+        function atualizarTotalProdutos() {
+            if (vendas.length === 0) {
+                corpoTotalProdutos.innerHTML = `
+                    <tr>
+                        <td colspan="3" style="text-align:center; color:#8a7a6a; padding:20px;">Nenhuma venda registrada</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const resumoProdutos = {};
+            let totalGeral = 0;
+            let qtdGeral = 0;
+
+            vendas.forEach(v => {
+                v.itens.forEach(item => {
+                    if (!resumoProdutos[item.nome]) {
+                        resumoProdutos[item.nome] = { quantidade: 0, total: 0 };
+                    }
+                    resumoProdutos[item.nome].quantidade += item.quantidade;
+                    resumoProdutos[item.nome].total += item.preco * item.quantidade;
+                    totalGeral += item.preco * item.quantidade;
+                    qtdGeral += item.quantidade;
+                });
+            });
+
+            let html = '';
+            for (const [nome, dados] of Object.entries(resumoProdutos)) {
+                html += `
+                    <tr>
+                        <td><strong>${nome}</strong></td>
+                        <td style="text-align:center;">${dados.quantidade}</td>
+                        <td style="text-align:right;"><strong>${formatarPreco(dados.total)}</strong></td>
+                    </tr>
+                `;
+            }
+            html += `
+                <tr class="total-geral">
+                    <td><strong>TOTAL GERAL</strong></td>
+                    <td style="text-align:center;"><strong>${qtdGeral}</strong></td>
+                    <td style="text-align:right;"><strong>${formatarPreco(totalGeral)}</strong></td>
+                </tr>
+            `;
+            corpoTotalProdutos.innerHTML = html;
+        }
+
+        // ============================================
+        // SALVAR CONFIGURAÇÕES
+        // ============================================
+        async function salvarConfiguracoes() {
+            const novaChavePix = inputChavePix.value || 'chave@empresa.com';
+            const novoTitularPix = inputTitularPix.value || 'Pastoral Familiar';
+
+            try {
+                await _supabase
+                    .from('config')
+                    .update({ valor: novaChavePix })
+                    .eq('chave', 'chavePix');
+
+                await _supabase
+                    .from('config')
+                    .update({ valor: novoTitularPix })
+                    .eq('chave', 'titularPix');
+
+                const fileInput = document.getElementById('inputQRCode');
+                if (fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = async function(event) {
+                        const imagemBase64 = event.target.result;
+                        await _supabase
+                            .from('config')
+                            .update({ valor: imagemBase64 })
+                            .eq('chave', 'qrCodeImage');
+                        qrCodeImage = imagemBase64;
+                        previewQR.innerHTML = `<img src="${imagemBase64}" alt="QR Code">`;
+                        alert('✅ Configurações salvas com sucesso!');
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else {
+                    chavePix = novaChavePix;
+                    titularPix = novoTitularPix;
+                    alert('✅ Configurações salvas com sucesso!');
+                }
+            } catch (error) {
+                console.error('❌ Erro ao salvar configurações:', error);
+                alert('Erro ao salvar configurações. Tente novamente.');
+            }
+        }
+
+        // ============================================
+        // SALVAR PRODUTOS
+        // ============================================
+        async function salvarProdutos() {
+            const nomes = document.querySelectorAll('.edit-nome');
+            const precos = document.querySelectorAll('.edit-preco');
+            
+            try {
+                for (const input of nomes) {
+                    const id = parseInt(input.dataset.id);
+                    const produto = produtos.find(p => p.id === id);
+                    if (produto && input.value.trim()) {
+                        produto.nome = input.value.trim();
+                    }
+                }
+
+                for (const input of precos) {
+                    const id = parseInt(input.dataset.id);
+                    const produto = produtos.find(p => p.id === id);
+                    if (produto && input.value && !isNaN(parseFloat(input.value))) {
+                        produto.preco = parseFloat(input.value);
+                    }
+                }
+
+                for (const produto of produtos) {
+                    await _supabase
+                        .from('produtos')
+                        .update({ 
+                            nome: produto.nome, 
+                            preco: produto.preco,
+                            imagem: produto.imagem 
+                        })
+                        .eq('id', produto.id);
+                }
+                
+                renderizarEdicaoProdutos();
+                alert('✅ Produtos atualizados com sucesso!');
+            } catch (error) {
+                console.error('❌ Erro ao salvar produtos:', error);
+                alert('Erro ao salvar produtos. Tente novamente.');
+            }
+        }
+
+        // ============================================
+        // ADICIONAR PRODUTO
+        // ============================================
+        async function adicionarProduto() {
+            const nome = prompt('Digite o nome do novo produto:');
+            if (!nome || nome.trim() === '') return;
+            
+            const precoStr = prompt('Digite o preço do produto (ex: 10.50):');
+            if (!precoStr) return;
+            
+            const preco = parseFloat(precoStr.replace(',', '.'));
+            if (isNaN(preco) || preco <= 0) {
+                alert('Preço inválido. Digite um valor numérico positivo.');
+                return;
+            }
+
+            try {
+                const { data, error } = await _supabase
+                    .from('produtos')
+                    .insert([{
+                        nome: nome.trim(),
+                        preco: preco,
+                        imagem: null
+                    }])
+                    .select();
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    produtos.push(data[0]);
+                    renderizarEdicaoProdutos();
+                    alert(`✅ Produto "${data[0].nome}" adicionado com sucesso!`);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao adicionar produto:', error);
+                alert('Erro ao adicionar produto. Tente novamente.');
+            }
+        }
+
+        // ============================================
+        // EXCLUIR VENDA
+        // ============================================
+        async function excluirVenda(id) {
+            if (!confirm(`Excluir venda #${id}?`)) return;
+            try {
+                const { error } = await _supabase
+                    .from('vendas')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) throw error;
+                
+                vendas = vendas.filter(v => v.id !== id);
+                atualizarGestao();
+            } catch (error) {
+                console.error('❌ Erro ao excluir venda:', error);
+                alert('Erro ao excluir venda. Tente novamente.');
+            }
+        }
+
+        // ============================================
+        // EXCLUIR TODAS AS VENDAS
+        // ============================================
+        async function excluirTodasVendas() {
+            if (vendas.length === 0) {
+                alert('Não há vendas para excluir.');
+                return;
+            }
+            if (confirm('⚠️ Tem certeza que deseja excluir TODAS as vendas? Esta ação não pode ser desfeita.')) {
+                try {
+                    const { error } = await _supabase
+                        .from('vendas')
+                        .delete()
+                        .neq('id', 0);
+                    
+                    if (error) throw error;
+
+                    vendas = [];
+                    atualizarGestao();
+                    alert('✅ Todas as vendas foram excluídas.');
+                } catch (error) {
+                    console.error('❌ Erro ao excluir todas as vendas:', error);
+                    alert('Erro ao excluir todas as vendas. Tente novamente.');
+                }
+            }
+        }
+
+        // ============================================
+        // BLOQUEAR SISTEMA
+        // ============================================
+        async function toggleBloqueio() {
+            try {
+                const novoEstado = !sistemaBloqueado;
+                await _supabase
+                    .from('config')
+                    .update({ valor: String(novoEstado) })
+                    .eq('chave', 'sistemaBloqueado');
+                
+                sistemaBloqueado = novoEstado;
+                atualizarBotaoBloqueio();
+                alert(sistemaBloqueado ? 
+                    '🔒 Atendimento BLOQUEADO com sucesso!' : 
+                    '🔓 Atendimento DESBLOQUEADO com sucesso!'
+                );
+            } catch (error) {
+                console.error('❌ Erro ao alterar bloqueio:', error);
+                alert('Erro ao alterar bloqueio. Tente novamente.');
+            }
+        }
+
+        // ============================================
+        // LOGIN
+        // ============================================
+        function fazerLogin() {
+            const login = inputLogin.value.trim();
+            const senha = inputSenha.value.trim();
+            
+            if (login === 'admin' && senha === 'admin0313') {
+                loginAutenticado = true;
+                modalLogin.classList.remove('ativo');
+                conteudoGestao.classList.remove('hidden');
+                carregarDados();
+                erroLogin.style.display = 'none';
+            } else {
+                erroLogin.style.display = 'block';
+                inputSenha.value = '';
+                inputSenha.focus();
+            }
+        }
+
+        // ============================================
+        // EVENTOS
+        // ============================================
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            if (target.id === 'btnLogin') {
+                fazerLogin();
+            }
+
+            if (target.id === 'btnSalvarConfig') {
+                salvarConfiguracoes();
+            }
+
+            if (target.id === 'btnSalvarProdutos') {
+                salvarProdutos();
+            }
+
+            if (target.id === 'btnAdicionarProduto') {
+                adicionarProduto();
+            }
+
+            if (target.id === 'btnBloqueio') {
+                toggleBloqueio();
+            }
+
+            if (target.id === 'btnExcluirTodasVendas') {
+                excluirTodasVendas();
+            }
+
+            if (target.dataset.acao === 'excluir') {
+                const id = parseInt(target.dataset.id);
+                excluirVenda(id);
+            }
+        });
+
+        // ============================================
+        // ENTER PARA LOGIN
+        // ============================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && modalLogin.classList.contains('ativo')) {
+                fazerLogin();
+            }
+        });
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        modalLogin.classList.add('ativo');
+        inputLogin.focus();
+
+        console.log('🚀 Sistema de Gestão iniciado!');
+        console.log('👤 Login: admin | Senha: admin0313');
+    </script>
+</body>
+</html>
