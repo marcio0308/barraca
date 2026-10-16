@@ -25,9 +25,9 @@
     }
   ],
   "id": "./index.html",
-  "name": "Pastoral Familiar - Atendimento",
-  "short_name": "Pastoral",
-  "description": "Atendimento de vendas da Pastoral Familiar - Paróquia São José",
+  "name": "BARRACA DA MESCE - Atendimento",
+  "short_name": "Barraca",
+  "description": "Atendimento de vendas da Barraca da Mesce - Paróquia São José",
   "start_url": "./index.html",
   "theme_color": "#e87a2a"
 }
