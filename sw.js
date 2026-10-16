@@ -4,7 +4,7 @@
    atualizações aparecem sozinhas. Aumente a VERSAO se trocar a
    versão do SDK ou a lista de arquivos abaixo.
    ============================================================ */
-const VERSAO = 'pf-v1';
+const VERSAO = 'pf-v2';
 const CACHE_APP = `${VERSAO}-app`;
 const CACHE_IMAGENS = 'pf-imagens';      // imagens dos produtos (nome de arquivo único: podem ficar)
 const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js';
