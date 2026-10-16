@@ -2,13 +2,26 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <meta name="theme-color" content="#e87a2a">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2a4a6a">
+    <meta name="robots" content="noindex, nofollow">
     <title>Pastoral Familiar - Gestão</title>
-    
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest-gestao.json">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Gestão PF">
+
+    <link rel="preconnect" href="https://ysdfnaoyyeplvxxgzvhv.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+    <script defer src="comum.js"></script>
+    <script defer src="gestao.js"></script>
+
     <style>
         /* ============================================
            ESTILOS COMPLETOS - GESTÃO
@@ -656,6 +669,110 @@
                 padding: 24px 16px;
             }
         }
+
+        /* ============================================
+           AJUSTES DA REVISÃO (desempenho e novos estados)
+           ============================================ */
+        /* backdrop-filter em cada botão e no container pesa muito em celulares simples */
+        .app-container, .btn { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+        .btn:disabled, .btn.ocupado, button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status-conexao .conectando { color: #b8860b; }
+
+        .vazio {
+            text-align: center;
+            color: #8a7a6a;
+            font-size: 14px;
+            padding: 20px;
+        }
+
+        .painel-erro {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 28px 16px;
+            background: #fff4ee;
+            border: 1px solid rgba(176, 90, 58, 0.3);
+            border-radius: 20px;
+            color: #6a3a2a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .painel-erro .dica { font-size: 12px; color: #8a7a6a; }
+
+        /* Avisos (substituem os alert() que travavam a tela) */
+        #areaAvisos {
+            position: fixed;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            z-index: 20000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: min(92vw, 440px);
+            pointer-events: none;
+        }
+
+        .aviso {
+            background: #2a4a6a;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            animation: avisoEntra 0.25s ease;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .aviso.saindo { opacity: 0; transform: translateY(10px); }
+        .aviso-sucesso { background: #2a7a4a; }
+        .aviso-erro { background: #b05a3a; }
+        .aviso-alerta { background: #c96a1a; }
+
+        @keyframes avisoEntra {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .nav-sair {
+            position: absolute;
+            right: 0;
+            top: 4px;
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+
+        .produto-edit-item.alterado { border-color: #e87a2a; box-shadow: 0 0 0 3px rgba(232, 122, 42, 0.12); }
+
+        .produto-edit-item .preview-mini.enviando { opacity: 0.4; }
+
+        .aviso-migracao {
+            background: #fff4ee;
+            border: 1px solid rgba(232, 122, 42, 0.4);
+            color: #6a3a2a;
+            border-radius: 16px;
+            padding: 12px 16px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .modal-login .btn { width: 100%; margin-top: 10px; padding: 14px; font-size: 15px; }
+
+        .mais-vendas { text-align: center; font-size: 13px; color: #8a7a6a; padding: 6px; }
+
+        @media (max-width: 600px) {
+            .nav-sair { position: static; }
+        }
     </style>
 </head>
 <body>
@@ -666,49 +783,55 @@
                 Pastoral Familiar
                 <span>Painel de Gestão</span>
             </div>
+            <button type="button" class="btn btn-secondary nav-sair hidden" id="btnSair">Sair</button>
         </div>
 
         <!-- Conteúdo (escondido até login) -->
         <div id="conteudoGestao" class="hidden">
             <h2>Gestão de Vendas</h2>
 
-            <!-- Configuração Geral -->
+            <div id="avisoMigracao" class="aviso-migracao hidden"></div>
+
+            <!-- Configuração Pix -->
             <div class="config-area">
                 <h3 style="margin-bottom:8px;">Configuração Pix</h3>
-                
+
                 <div class="campo-duplo">
                     <div class="campo">
-                        <label>Chave Pix:</label>
-                        <input type="text" id="inputChavePix" placeholder="Digite a chave Pix">
+                        <label for="inputChavePix">Chave Pix:</label>
+                        <input type="text" id="inputChavePix" placeholder="Digite a chave Pix" autocomplete="off">
                     </div>
                     <div class="campo">
-                        <label>Titular da Chave:</label>
-                        <input type="text" id="inputTitularPix" placeholder="Nome do titular">
+                        <label for="inputTitularPix">Titular da Chave:</label>
+                        <input type="text" id="inputTitularPix" placeholder="Nome do titular" autocomplete="off">
                     </div>
                 </div>
 
-                <label style="font-weight:500; color:#4a3a2a; font-size:14px; margin-top:8px; display:block;">Imagem QR Code:</label>
+                <label for="inputQRCode" style="font-weight:500; color:#4a3a2a; font-size:14px; margin-top:8px; display:block;">Imagem QR Code:</label>
                 <input type="file" id="inputQRCode" accept="image/*">
                 <div class="preview-qr" id="previewQR"></div>
 
-                <button class="btn btn-primario" id="btnSalvarConfig" style="margin-top:12px;">Salvar Configurações</button>
+                <button type="button" class="btn btn-primario" id="btnSalvarConfig" style="margin-top:12px;">Salvar Configurações</button>
             </div>
 
             <!-- Edição de Produtos -->
             <div class="config-area">
                 <h3 style="margin-bottom:8px;">Editar Produtos</h3>
+                <p style="font-size:12px; color:#6a5a4a; margin-bottom:6px;">
+                    A imagem é enviada assim que escolhida. Nome e preço alterados ficam com borda laranja até você clicar em "Salvar Produtos".
+                </p>
                 <div id="areaEdicaoProdutos"></div>
-                
+
                 <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <button class="btn btn-success" id="btnAdicionarProduto" style="flex:1;">+ Adicionar Novo Produto</button>
-                    <button class="btn btn-primario" id="btnSalvarProdutos" style="flex:1;">Salvar Produtos</button>
+                    <button type="button" class="btn btn-success" id="btnAdicionarProduto" style="flex:1;">+ Adicionar Novo Produto</button>
+                    <button type="button" class="btn btn-primario" id="btnSalvarProdutos" style="flex:1;">Salvar Produtos</button>
                 </div>
             </div>
 
             <!-- Controle de Bloqueio -->
             <div class="config-area">
                 <h3 style="margin-bottom:8px;">🔒 Controle de Bloqueio</h3>
-                <button class="btn-bloqueio" id="btnBloqueio">🔒 Bloquear Atendimento</button>
+                <button type="button" class="btn-bloqueio" id="btnBloqueio">🔒 Bloquear Atendimento</button>
                 <p style="font-size:12px; color:#6a5a4a; margin-top:6px; text-align:center;">
                     ⚠️ Ao bloquear, o sistema de atendimento ficará INACESSÍVEL para todos os usuários
                 </p>
@@ -717,18 +840,21 @@
             <!-- Lista de Vendas -->
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px;">
                 <h3 style="margin:0;">📋 Vendas Realizadas</h3>
-                <button class="btn btn-danger" id="btnExcluirTodasVendas">🗑️ Excluir Todas as Vendas</button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-secondary" id="btnAtualizar">🔄 Atualizar</button>
+                    <button type="button" class="btn btn-danger" id="btnExcluirTodasVendas">🗑️ Excluir Todas as Vendas</button>
+                </div>
             </div>
             <div id="listaVendasVertical" class="lista-vendas-vertical"></div>
 
             <!-- Resumo -->
             <div class="info-box">
                 <span class="label">💰 Total de Vendas:</span>
-                <span class="valor" id="totalVendas">R$ 0,00</span>
+                <span class="valor" id="totalVendas">R$&nbsp;0,00</span>
                 <span class="label" style="margin-left:12px;">📦 Quantidade:</span>
                 <span class="valor" id="quantidadeVendida">0</span>
             </div>
-            
+
             <!-- Total por Produto -->
             <h3 style="margin-top:16px;">📊 Total por Produto</h3>
             <div class="scroll-container">
@@ -741,620 +867,28 @@
                         </tr>
                     </thead>
                     <tbody id="corpoTotalProdutos">
-                        <tr>
-                            <td colspan="3" style="text-align:center; color:#8a7a6a; padding:20px;">Nenhuma venda registrada</td>
-                        </tr>
+                        <tr><td colspan="3" class="vazio">Nenhuma venda registrada</td></tr>
                     </tbody>
                 </table>
             </div>
 
             <!-- Status -->
             <div class="status-conexao">
-                Status: <span id="statusConexao" class="online">🟢 Conectado</span>
+                Status: <span id="statusConexao" class="conectando">🟡 Conectando...</span>
             </div>
         </div>
 
         <!-- Modal Login -->
         <div class="modal-overlay" id="modalLogin">
-            <div class="modal-login">
+            <form class="modal-login" id="formLogin" novalidate>
                 <h3>🔐 Acesso à Gestão</h3>
-                <p>Digite suas credenciais para acessar a área administrativa</p>
-                <input type="text" id="inputLogin" placeholder="Usuário" value="admin">
-                <input type="password" id="inputSenha" placeholder="Senha" value="admin0313">
-                <div class="erro-login" id="erroLogin">❌ Usuário ou senha incorretos!</div>
-                <button class="btn btn-primario" id="btnLogin">Entrar</button>
-            </div>
+                <p>Entre com o e-mail e a senha de gestor cadastrados no Supabase</p>
+                <input type="email" id="inputEmail" placeholder="E-mail" autocomplete="username" required>
+                <input type="password" id="inputSenha" placeholder="Senha" autocomplete="current-password" required>
+                <div class="erro-login" id="erroLogin"></div>
+                <button type="submit" class="btn btn-primario" id="btnLogin">Entrar</button>
+            </form>
         </div>
     </div>
-
-    <script>
-        // ============================================
-        // CONFIGURAÇÃO DO SUPABASE
-        // ============================================
-        const SUPABASE_URL = 'https://ysdfnaoyyeplvxxgzvhv.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZGZuYW95eWVwbHZ4eGd6dmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjIyOTYsImV4cCI6MjA5ODU5ODI5Nn0._5A6tieplyU7Oy2DPV93kUYAJLd4caevKLnS8ZuOu54';
-
-        // Inicialização correta do cliente Supabase
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // ============================================
-        // ESTADO DO SISTEMA
-        // ============================================
-        let produtos = [];
-        let vendas = [];
-        let chavePix = '';
-        let titularPix = '';
-        let qrCodeImage = '';
-        let sistemaBloqueado = false;
-        let loginAutenticado = false;
-
-        // ============================================
-        // REFERÊNCIAS DOM
-        // ============================================
-        const conteudoGestao = document.getElementById('conteudoGestao');
-        const modalLogin = document.getElementById('modalLogin');
-        const inputLogin = document.getElementById('inputLogin');
-        const inputSenha = document.getElementById('inputSenha');
-        const erroLogin = document.getElementById('erroLogin');
-        const listaVendasVertical = document.getElementById('listaVendasVertical');
-        const totalVendas = document.getElementById('totalVendas');
-        const quantidadeVendida = document.getElementById('quantidadeVendida');
-        const corpoTotalProdutos = document.getElementById('corpoTotalProdutos');
-        const areaEdicaoProdutos = document.getElementById('areaEdicaoProdutos');
-        const inputChavePix = document.getElementById('inputChavePix');
-        const inputTitularPix = document.getElementById('inputTitularPix');
-        const inputQRCode = document.getElementById('inputQRCode');
-        const previewQR = document.getElementById('previewQR');
-        const btnBloqueio = document.getElementById('btnBloqueio');
-        const statusConexao = document.getElementById('statusConexao');
-
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
-        function formatarPreco(val) {
-            return 'R$ ' + val.toFixed(2);
-        }
-
-        function getPagamentoLabel(pagamento) {
-            const map = { pix: 'Pix', cartao: 'Cartão', dinheiro: 'Dinheiro' };
-            return map[pagamento] || pagamento;
-        }
-
-        function atualizarStatusConexao(online) {
-            if (online) {
-                statusConexao.textContent = '🟢 Conectado';
-                statusConexao.className = 'online';
-            } else {
-                statusConexao.textContent = '🔴 Offline';
-                statusConexao.className = 'offline';
-            }
-        }
-
-        // ============================================
-        // CARREGAR DADOS DO SUPABASE
-        // ============================================
-        async function carregarDados() {
-            try {
-                // Carregar produtos
-                const { data: produtosData, error: produtosError } = await _supabase
-                    .from('produtos')
-                    .select('*')
-                    .order('id');
-
-                if (produtosError) throw produtosError;
-
-                if (produtosData) {
-                    produtos = produtosData;
-                }
-
-                // Carregar configurações
-                const { data: configData, error: configError } = await _supabase
-                    .from('config')
-                    .select('*');
-
-                if (configError) throw configError;
-
-                if (configData) {
-                    configData.forEach(item => {
-                        if (item.chave === 'chavePix') chavePix = item.valor;
-                        if (item.chave === 'titularPix') titularPix = item.valor;
-                        if (item.chave === 'qrCodeImage') {
-                            qrCodeImage = item.valor;
-                            if (qrCodeImage && qrCodeImage !== '') {
-                                previewQR.innerHTML = `<img src="${qrCodeImage}" alt="QR Code">`;
-                            }
-                        }
-                        if (item.chave === 'sistemaBloqueado') {
-                            sistemaBloqueado = item.valor === 'true';
-                            atualizarBotaoBloqueio();
-                        }
-                    });
-                }
-
-                // Carregar vendas
-                const { data: vendasData, error: vendasError } = await _supabase
-                    .from('vendas')
-                    .select('*')
-                    .order('data', { ascending: false });
-
-                if (vendasError) throw vendasError;
-
-                if (vendasData) {
-                    vendas = vendasData;
-                }
-
-                // Atualizar interfaces
-                inputChavePix.value = chavePix;
-                inputTitularPix.value = titularPix;
-                renderizarEdicaoProdutos();
-                atualizarGestao();
-                
-                console.log('✅ Dados carregados do Supabase!');
-                atualizarStatusConexao(true);
-            } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error);
-                atualizarStatusConexao(false);
-                alert('Erro ao carregar dados. Verifique sua conexão.');
-            }
-        }
-
-        // ============================================
-        // ATUALIZAR BOTÃO DE BLOQUEIO
-        // ============================================
-        function atualizarBotaoBloqueio() {
-            if (sistemaBloqueado) {
-                btnBloqueio.textContent = '🔓 Desbloquear Atendimento';
-                btnBloqueio.classList.add('bloqueado');
-            } else {
-                btnBloqueio.textContent = '🔒 Bloquear Atendimento';
-                btnBloqueio.classList.remove('bloqueado');
-            }
-        }
-
-        // ============================================
-        // RENDER EDIÇÃO PRODUTOS
-        // ============================================
-        function renderizarEdicaoProdutos() {
-            areaEdicaoProdutos.innerHTML = '';
-            if (!produtos || produtos.length === 0) {
-                areaEdicaoProdutos.innerHTML = '<p style="text-align:center; color:#8a7a6a; padding:20px;">Nenhum produto cadastrado</p>';
-                return;
-            }
-
-            produtos.forEach((p) => {
-                const div = document.createElement('div');
-                div.className = 'produto-edit-item';
-                div.innerHTML = `
-                    <div class="preview-mini">
-                        ${p.imagem ? `<img src="${p.imagem}" alt="${p.nome}">` : `<span>${p.nome.charAt(0)}</span>`}
-                    </div>
-                    <div class="campo">
-                        <label>Nome</label>
-                        <input type="text" class="edit-nome" value="${p.nome}" data-id="${p.id}">
-                    </div>
-                    <div class="campo">
-                        <label>Preço (R$)</label>
-                        <input type="number" class="edit-preco" value="${p.preco}" step="0.01" min="0" data-id="${p.id}">
-                    </div>
-                    <div class="campo">
-                        <label>Imagem</label>
-                        <input type="file" class="edit-imagem" accept="image/*" data-id="${p.id}">
-                    </div>
-                    <button class="btn btn-danger btn-remover-produto" data-id="${p.id}" style="padding:6px 16px; font-size:13px;">Remover</button>
-                `;
-                areaEdicaoProdutos.appendChild(div);
-            });
-
-            // Eventos para upload de imagem
-            document.querySelectorAll('.edit-imagem').forEach(input => {
-                input.addEventListener('change', function(e) {
-                    const id = parseInt(this.dataset.id);
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            const produto = produtos.find(p => p.id === id);
-                            if (produto) {
-                                produto.imagem = event.target.result;
-                                renderizarEdicaoProdutos();
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            });
-
-            // Eventos para remover produto
-            document.querySelectorAll('.btn-remover-produto').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const id = parseInt(this.dataset.id);
-                    const prod = produtos.find(p => p.id === id);
-                    if (prod && confirm(`Remover o produto "${prod.nome}"?`)) {
-                        try {
-                            const { error } = await _supabase.from('produtos').delete().eq('id', id);
-                            if (error) throw error;
-                            produtos = produtos.filter(p => p.id !== id);
-                            renderizarEdicaoProdutos();
-                            atualizarTotalProdutos();
-                        } catch (err) {
-                            console.error('Erro ao remover produto:', err);
-                            alert('Erro ao remover produto do banco de dados.');
-                        }
-                    }
-                });
-            });
-        }
-
-        // ============================================
-        // ATUALIZAR GESTÃO
-        // ============================================
-        function atualizarGestao() {
-            if (vendas.length === 0) {
-                listaVendasVertical.innerHTML = '<div style="padding:20px; text-align:center; color:#8a7a6a; font-size:14px;">Nenhuma venda registrada</div>';
-                totalVendas.textContent = 'R$ 0,00';
-                quantidadeVendida.textContent = '0';
-                atualizarTotalProdutos();
-                return;
-            }
-
-            let html = '';
-            let totalGeral = 0;
-            let qtdTotal = 0;
-
-            vendas.forEach(v => {
-                const itensStr = v.itens.map(i => `${i.nome}(${i.quantidade})`).join(', ');
-                const statusClass = v.status === 'pago' ? 'badge-pago' : '';
-                const statusText = v.status === 'pago' ? 'Pago' : 'Pendente';
-                const dataFormatada = v.data ? new Date(v.data).toLocaleString('pt-BR') : 'Data não disponível';
-
-                html += `
-                    <div class="venda-item-vertical">
-                        <div class="venda-header">
-                            <span class="venda-id">#${v.id}</span>
-                            <span class="venda-total">${formatarPreco(v.total)}</span>
-                            <span class="badge-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <div class="venda-detalhes">
-                            <strong>Produtos:</strong> ${itensStr}<br>
-                            <strong>Pagamento:</strong> ${getPagamentoLabel(v.pagamento) || '-'}<br>
-                            <strong>Data:</strong> ${dataFormatada}
-                        </div>
-                        <div class="venda-actions">
-                            <button class="btn btn-danger" data-id="${v.id}" data-acao="excluir" style="padding:4px 14px; font-size:13px;">Excluir</button>
-                        </div>
-                    </div>
-                `;
-                totalGeral += v.total;
-                v.itens.forEach(item => {
-                    qtdTotal += item.quantidade;
-                });
-            });
-
-            listaVendasVertical.innerHTML = html;
-            totalVendas.textContent = formatarPreco(totalGeral);
-            quantidadeVendida.textContent = qtdTotal;
-            atualizarTotalProdutos();
-        }
-
-        // ============================================
-        // TOTAL POR PRODUTO
-        // ============================================
-        function atualizarTotalProdutos() {
-            if (vendas.length === 0) {
-                corpoTotalProdutos.innerHTML = `
-                    <tr>
-                        <td colspan="3" style="text-align:center; color:#8a7a6a; padding:20px;">Nenhuma venda registrada</td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const resumoProdutos = {};
-            let totalGeral = 0;
-            let qtdGeral = 0;
-
-            vendas.forEach(v => {
-                v.itens.forEach(item => {
-                    if (!resumoProdutos[item.nome]) {
-                        resumoProdutos[item.nome] = { quantidade: 0, total: 0 };
-                    }
-                    resumoProdutos[item.nome].quantidade += item.quantidade;
-                    resumoProdutos[item.nome].total += item.preco * item.quantidade;
-                    totalGeral += item.preco * item.quantidade;
-                    qtdGeral += item.quantidade;
-                });
-            });
-
-            let html = '';
-            for (const [nome, dados] of Object.entries(resumoProdutos)) {
-                html += `
-                    <tr>
-                        <td><strong>${nome}</strong></td>
-                        <td style="text-align:center;">${dados.quantidade}</td>
-                        <td style="text-align:right;"><strong>${formatarPreco(dados.total)}</strong></td>
-                    </tr>
-                `;
-            }
-            html += `
-                <tr class="total-geral">
-                    <td><strong>TOTAL GERAL</strong></td>
-                    <td style="text-align:center;"><strong>${qtdGeral}</strong></td>
-                    <td style="text-align:right;"><strong>${formatarPreco(totalGeral)}</strong></td>
-                </tr>
-            `;
-            corpoTotalProdutos.innerHTML = html;
-        }
-
-        // ============================================
-        // SALVAR CONFIGURAÇÕES
-        // ============================================
-        async function salvarConfiguracoes() {
-            const novaChavePix = inputChavePix.value || 'chave@empresa.com';
-            const novoTitularPix = inputTitularPix.value || 'Pastoral Familiar';
-
-            try {
-                await _supabase
-                    .from('config')
-                    .update({ valor: novaChavePix })
-                    .eq('chave', 'chavePix');
-
-                await _supabase
-                    .from('config')
-                    .update({ valor: novoTitularPix })
-                    .eq('chave', 'titularPix');
-
-                const fileInput = document.getElementById('inputQRCode');
-                if (fileInput.files && fileInput.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = async function(event) {
-                        const imagemBase64 = event.target.result;
-                        await _supabase
-                            .from('config')
-                            .update({ valor: imagemBase64 })
-                            .eq('chave', 'qrCodeImage');
-                        qrCodeImage = imagemBase64;
-                        previewQR.innerHTML = `<img src="${imagemBase64}" alt="QR Code">`;
-                        alert('✅ Configurações salvas com sucesso!');
-                    };
-                    reader.readAsDataURL(fileInput.files[0]);
-                } else {
-                    chavePix = novaChavePix;
-                    titularPix = novoTitularPix;
-                    alert('✅ Configurações salvas com sucesso!');
-                }
-            } catch (error) {
-                console.error('❌ Erro ao salvar configurações:', error);
-                alert('Erro ao salvar configurações. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // SALVAR PRODUTOS
-        // ============================================
-        async function salvarProdutos() {
-            const nomes = document.querySelectorAll('.edit-nome');
-            const precos = document.querySelectorAll('.edit-preco');
-            
-            try {
-                for (const input of nomes) {
-                    const id = parseInt(input.dataset.id);
-                    const produto = produtos.find(p => p.id === id);
-                    if (produto && input.value.trim()) {
-                        produto.nome = input.value.trim();
-                    }
-                }
-
-                for (const input of precos) {
-                    const id = parseInt(input.dataset.id);
-                    const produto = produtos.find(p => p.id === id);
-                    if (produto && input.value && !isNaN(parseFloat(input.value))) {
-                        produto.preco = parseFloat(input.value);
-                    }
-                }
-
-                for (const produto of produtos) {
-                    await _supabase
-                        .from('produtos')
-                        .update({ 
-                            nome: produto.nome, 
-                            preco: produto.preco,
-                            imagem: produto.imagem 
-                        })
-                        .eq('id', produto.id);
-                }
-                
-                renderizarEdicaoProdutos();
-                alert('✅ Produtos atualizados com sucesso!');
-            } catch (error) {
-                console.error('❌ Erro ao salvar produtos:', error);
-                alert('Erro ao salvar produtos. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // ADICIONAR PRODUTO
-        // ============================================
-        async function adicionarProduto() {
-            const nome = prompt('Digite o nome do novo produto:');
-            if (!nome || nome.trim() === '') return;
-            
-            const precoStr = prompt('Digite o preço do produto (ex: 10.50):');
-            if (!precoStr) return;
-            
-            const preco = parseFloat(precoStr.replace(',', '.'));
-            if (isNaN(preco) || preco <= 0) {
-                alert('Preço inválido. Digite um valor numérico positivo.');
-                return;
-            }
-
-            try {
-                const { data, error } = await _supabase
-                    .from('produtos')
-                    .insert([{
-                        nome: nome.trim(),
-                        preco: preco,
-                        imagem: null
-                    }])
-                    .select();
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    produtos.push(data[0]);
-                    renderizarEdicaoProdutos();
-                    alert(`✅ Produto "${data[0].nome}" adicionado com sucesso!`);
-                }
-            } catch (error) {
-                console.error('❌ Erro ao adicionar produto:', error);
-                alert('Erro ao adicionar produto. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // EXCLUIR VENDA
-        // ============================================
-        async function excluirVenda(id) {
-            if (!confirm(`Excluir venda #${id}?`)) return;
-            try {
-                const { error } = await _supabase
-                    .from('vendas')
-                    .delete()
-                    .eq('id', id);
-                
-                if (error) throw error;
-                
-                vendas = vendas.filter(v => v.id !== id);
-                atualizarGestao();
-            } catch (error) {
-                console.error('❌ Erro ao excluir venda:', error);
-                alert('Erro ao excluir venda. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // EXCLUIR TODAS AS VENDAS
-        // ============================================
-        async function excluirTodasVendas() {
-            if (vendas.length === 0) {
-                alert('Não há vendas para excluir.');
-                return;
-            }
-            if (confirm('⚠️ Tem certeza que deseja excluir TODAS as vendas? Esta ação não pode ser desfeita.')) {
-                try {
-                    const { error } = await _supabase
-                        .from('vendas')
-                        .delete()
-                        .neq('id', 0);
-                    
-                    if (error) throw error;
-
-                    vendas = [];
-                    atualizarGestao();
-                    alert('✅ Todas as vendas foram excluídas.');
-                } catch (error) {
-                    console.error('❌ Erro ao excluir todas as vendas:', error);
-                    alert('Erro ao excluir todas as vendas. Tente novamente.');
-                }
-            }
-        }
-
-        // ============================================
-        // BLOQUEAR SISTEMA
-        // ============================================
-        async function toggleBloqueio() {
-            try {
-                const novoEstado = !sistemaBloqueado;
-                await _supabase
-                    .from('config')
-                    .update({ valor: String(novoEstado) })
-                    .eq('chave', 'sistemaBloqueado');
-                
-                sistemaBloqueado = novoEstado;
-                atualizarBotaoBloqueio();
-                alert(sistemaBloqueado ? 
-                    '🔒 Atendimento BLOQUEADO com sucesso!' : 
-                    '🔓 Atendimento DESBLOQUEADO com sucesso!'
-                );
-            } catch (error) {
-                console.error('❌ Erro ao alterar bloqueio:', error);
-                alert('Erro ao alterar bloqueio. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // LOGIN
-        // ============================================
-        function fazerLogin() {
-            const login = inputLogin.value.trim();
-            const senha = inputSenha.value.trim();
-            
-            if (login === 'admin' && senha === 'admin0313') {
-                loginAutenticado = true;
-                modalLogin.classList.remove('ativo');
-                conteudoGestao.classList.remove('hidden');
-                carregarDados();
-                erroLogin.style.display = 'none';
-            } else {
-                erroLogin.style.display = 'block';
-                inputSenha.value = '';
-                inputSenha.focus();
-            }
-        }
-
-        // ============================================
-        // EVENTOS
-        // ============================================
-        document.addEventListener('click', function(e) {
-            const target = e.target.closest('button');
-            if (!target) return;
-
-            if (target.id === 'btnLogin') {
-                fazerLogin();
-            }
-
-            if (target.id === 'btnSalvarConfig') {
-                salvarConfiguracoes();
-            }
-
-            if (target.id === 'btnSalvarProdutos') {
-                salvarProdutos();
-            }
-
-            if (target.id === 'btnAdicionarProduto') {
-                adicionarProduto();
-            }
-
-            if (target.id === 'btnBloqueio') {
-                toggleBloqueio();
-            }
-
-            if (target.id === 'btnExcluirTodasVendas') {
-                excluirTodasVendas();
-            }
-
-            if (target.dataset.acao === 'excluir') {
-                const id = parseInt(target.dataset.id);
-                excluirVenda(id);
-            }
-        });
-
-        // ============================================
-        // ENTER PARA LOGIN
-        // ============================================
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && modalLogin.classList.contains('ativo')) {
-                fazerLogin();
-            }
-        });
-
-        // ============================================
-        // INICIALIZAÇÃO
-        // ============================================
-        modalLogin.classList.add('ativo');
-        inputLogin.focus();
-
-        console.log('🚀 Sistema de Gestão iniciado!');
-        console.log('👤 Login: admin | Senha: admin0313');
-    </script>
 </body>
 </html>
