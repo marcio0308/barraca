@@ -2,13 +2,29 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#e87a2a">
+    <meta name="description" content="Atendimento de vendas da Pastoral Familiar - Paróquia São José">
     <title>Pastoral Familiar - Atendimento</title>
-    
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Pastoral">
+
+    <!-- Abre a conexão com os servidores antes de precisar deles -->
+    <link rel="preconnect" href="https://ysdfnaoyyeplvxxgzvhv.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+    <!-- Versão FIXA do SDK e carregamento com defer (não bloqueia a tela) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+    <script defer src="comum.js"></script>
+    <script defer src="atendimento.js"></script>
+
     <style>
         /* ============================================
            ESTILOS COMPLETOS - ATENDIMENTO
@@ -759,6 +775,90 @@
                 font-size: 13px;
             }
         }
+
+        /* ============================================
+           AJUSTES DA REVISÃO (desempenho e novos estados)
+           ============================================ */
+        /* backdrop-filter em cada botão e no container pesa muito em celulares simples */
+        .app-container, .btn { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+        .btn:disabled, .btn.ocupado, button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .status-conexao .conectando { color: #b8860b; }
+
+        .vazio {
+            text-align: center;
+            color: #8a7a6a;
+            font-size: 14px;
+            padding: 20px;
+        }
+
+        .painel-erro {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 28px 16px;
+            background: #fff4ee;
+            border: 1px solid rgba(176, 90, 58, 0.3);
+            border-radius: 20px;
+            color: #6a3a2a;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .painel-erro .dica { font-size: 12px; color: #8a7a6a; }
+
+        /* Avisos (substituem os alert() que travavam a tela) */
+        #areaAvisos {
+            position: fixed;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            z-index: 20000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: min(92vw, 440px);
+            pointer-events: none;
+        }
+
+        .aviso {
+            background: #2a4a6a;
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            animation: avisoEntra 0.25s ease;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .aviso.saindo { opacity: 0; transform: translateY(10px); }
+        .aviso-sucesso { background: #2a7a4a; }
+        .aviso-erro { background: #b05a3a; }
+        .aviso-alerta { background: #c96a1a; }
+
+        @keyframes avisoEntra {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* O cartão agora é um <button> (acessível pelo teclado) */
+        .cartao-produto {
+            font: inherit;
+            color: inherit;
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+        }
     </style>
 </head>
 <body>
@@ -783,22 +883,24 @@
         <!-- Conteúdo -->
         <div id="conteudoAtendimento">
             <h2>Produtos</h2>
-            <div class="grade-produtos" id="gradeProdutos"></div>
+            <div class="grade-produtos" id="gradeProdutos">
+                <div class="vazio" style="grid-column:1/-1;">Carregando produtos...</div>
+            </div>
 
             <div class="carrinho-box">
                 <h3>Carrinho</h3>
                 <div id="listaCarrinho"></div>
-                <div class="total-carrinho" id="totalCarrinho">Total: R$ 0,00</div>
+                <div class="total-carrinho" id="totalCarrinho">Total: R$&nbsp;0,00</div>
                 <div class="grupo-botoes">
-                    <button class="btn btn-secondary" id="btnLimparCarrinho">Limpar Carrinho</button>
-                    <button class="btn btn-primario" id="btnEncerrarVenda">Encerrar Venda</button>
+                    <button type="button" class="btn btn-secondary" id="btnLimparCarrinho">Limpar Carrinho</button>
+                    <button type="button" class="btn btn-primario" id="btnEncerrarVenda">Encerrar Venda</button>
                 </div>
             </div>
         </div>
 
         <!-- Status -->
         <div class="status-conexao">
-            Status: <span id="statusConexao" class="online">🟢 Conectado</span>
+            Status: <span id="statusConexao" class="conectando">🟡 Conectando...</span>
         </div>
     </div>
 
@@ -807,18 +909,18 @@
         <div class="modal-conteudo" style="max-width: 550px;">
             <h3>📋 Resumo da Venda</h3>
             <div id="conteudoResumoVenda" class="resumo-venda-modal"></div>
-            
+
             <div style="margin-top:16px;">
                 <p style="text-align:center; font-size:14px; color:#4a3a2a; margin-bottom:12px; font-weight:600;">Selecione a forma de pagamento</p>
                 <div class="pagamento-opcoes-modal">
-                    <button class="btn-pagamento-modal pix" data-pagamento="pix">Pix</button>
-                    <button class="btn-pagamento-modal cartao" data-pagamento="cartao">Cartão</button>
-                    <button class="btn-pagamento-modal dinheiro" data-pagamento="dinheiro">Dinheiro</button>
+                    <button type="button" class="btn-pagamento-modal pix" data-pagamento="pix">Pix</button>
+                    <button type="button" class="btn-pagamento-modal cartao" data-pagamento="cartao">Cartão</button>
+                    <button type="button" class="btn-pagamento-modal dinheiro" data-pagamento="dinheiro">Dinheiro</button>
                 </div>
             </div>
-            
+
             <div class="modal-actions" style="margin-top:12px;">
-                <button class="btn btn-secondary" id="btnCancelarResumo" style="flex:0.5;">Cancelar</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelarResumo" style="flex:0.5;">Cancelar</button>
             </div>
         </div>
     </div>
@@ -834,8 +936,8 @@
                 <div class="titular-pix-modal" id="titularPixModal">Titular: carregando...</div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-success" id="btnSeguirQR" style="flex:1;">Seguir</button>
-                <button class="btn btn-secondary" id="btnFecharModalQR" style="flex:0.5;">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnSeguirQR" style="flex:1;">Seguir</button>
+                <button type="button" class="btn btn-secondary" id="btnFecharModalQR" style="flex:0.5;">Cancelar</button>
             </div>
         </div>
     </div>
@@ -846,8 +948,8 @@
             <h3>Pagamento</h3>
             <p style="font-size:16px; color:#4a3a2a; margin:16px 0;">O pagamento foi efetuado pelo cliente?</p>
             <div class="modal-actions">
-                <button class="btn btn-success" id="btnPagamentoSim">Sim, foi realizado</button>
-                <button class="btn btn-secondary" id="btnPagamentoNao">Não, cancelar</button>
+                <button type="button" class="btn btn-success" id="btnPagamentoSim">Sim, foi realizado</button>
+                <button type="button" class="btn btn-secondary" id="btnPagamentoNao">Não, voltar</button>
             </div>
         </div>
     </div>
@@ -855,505 +957,8 @@
     <!-- Modal Sucesso -->
     <div class="modal-overlay" id="modalSucesso">
         <div class="modal-sucesso">
-            <h3>Venda realizada com sucesso!</h3>
+            <h3 id="textoSucesso">Venda realizada com sucesso!</h3>
         </div>
     </div>
-
-    <script>
-        // ============================================
-        // CONFIGURAÇÃO DO SUPABASE
-        // ============================================
-        const SUPABASE_URL = 'https://ysdfnaoyyeplvxxgzvhv.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZGZuYW95eWVwbHZ4eGd6dmh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjIyOTYsImV4cCI6MjA5ODU5ODI5Nn0._5A6tieplyU7Oy2DPV93kUYAJLd4caevKLnS8ZuOu54';
-
-        // Inicialização correta do cliente Supabase usando o objeto global do SDK v2
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // ============================================
-        // ESTADO DO SISTEMA
-        // ============================================
-        let produtos = [];
-        let carrinho = [];
-        let vendas = [];
-        let vendaAtual = null;
-        let pagamentoSelecionado = null;
-        let chavePix = '';
-        let titularPix = '';
-        let qrCodeImage = '';
-        let sistemaBloqueado = false;
-
-        // ============================================
-        // REFERÊNCIAS DOM
-        // ============================================
-        const gradeProdutos = document.getElementById('gradeProdutos');
-        const listaCarrinho = document.getElementById('listaCarrinho');
-        const totalCarrinho = document.getElementById('totalCarrinho');
-        const modalResumoVenda = document.getElementById('modalResumoVenda');
-        const modalQRCode = document.getElementById('modalQRCode');
-        const modalPagamento = document.getElementById('modalPagamento');
-        const modalSucesso = document.getElementById('modalSucesso');
-        const bloqueioOverlay = document.getElementById('bloqueioOverlay');
-        const chavePixModal = document.getElementById('chavePixModal');
-        const titularPixModal = document.getElementById('titularPixModal');
-        const qrPlaceholder = document.getElementById('qrPlaceholder');
-        const conteudoResumoVenda = document.getElementById('conteudoResumoVenda');
-        const statusConexao = document.getElementById('statusConexao');
-
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
-        function formatarPreco(val) {
-            return 'R$ ' + val.toFixed(2);
-        }
-
-        function gerarIdUnico() {
-            return Date.now() + Math.floor(Math.random() * 1000);
-        }
-
-        function atualizarStatusConexao(online) {
-            if (online) {
-                statusConexao.textContent = '🟢 Conectado';
-                statusConexao.className = 'online';
-            } else {
-                statusConexao.textContent = '🔴 Offline';
-                statusConexao.className = 'offline';
-            }
-        }
-
-        // ============================================
-        // VERIFICAR BLOQUEIO
-        // ============================================
-        async function verificarBloqueio() {
-            try {
-                const { data, error } = await _supabase
-                    .from('config')
-                    .select('valor')
-                    .eq('chave', 'sistemaBloqueado')
-                    .maybeSingle();
-
-                if (error) throw error;
-
-                if (data) {
-                    sistemaBloqueado = data.valor === 'true';
-                    if (sistemaBloqueado) {
-                        bloqueioOverlay.classList.add('ativo');
-                        document.getElementById('conteudoAtendimento').style.opacity = '0.5';
-                        document.getElementById('conteudoAtendimento').style.pointerEvents = 'none';
-                    } else {
-                        bloqueioOverlay.classList.remove('ativo');
-                        document.getElementById('conteudoAtendimento').style.opacity = '1';
-                        document.getElementById('conteudoAtendimento').style.pointerEvents = 'auto';
-                    }
-                }
-                atualizarStatusConexao(true);
-                return sistemaBloqueado;
-            } catch (error) {
-                console.error('❌ Erro ao verificar bloqueio:', error);
-                atualizarStatusConexao(false);
-                return false;
-            }
-        }
-
-        // ============================================
-        // CARREGAR DADOS DO SUPABASE
-        // ============================================
-        async function carregarDados() {
-            try {
-                // Carregar produtos
-                const { data: produtosData, error: produtosError } = await _supabase
-                    .from('produtos')
-                    .select('*')
-                    .order('id');
-
-                if (produtosError) throw produtosError;
-
-                if (produtosData) {
-                    produtos = produtosData;
-                }
-
-                // Carregar configurações
-                const { data: configData, error: configError } = await _supabase
-                    .from('config')
-                    .select('*');
-
-                if (configError) throw configError;
-
-                if (configData) {
-                    configData.forEach(item => {
-                        if (item.chave === 'chavePix') chavePix = item.valor;
-                        if (item.chave === 'titularPix') titularPix = item.valor;
-                        if (item.chave === 'qrCodeImage') qrCodeImage = item.valor;
-                        if (item.chave === 'sistemaBloqueado') {
-                            sistemaBloqueado = item.valor === 'true';
-                        }
-                    });
-                }
-
-                // Atualizar interfaces
-                renderizarProdutos();
-                atualizarCarrinho();
-                await verificarBloqueio();
-
-                console.log('✅ Dados carregados do Supabase!');
-            } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error);
-                atualizarStatusConexao(false);
-                alert('Erro ao carregar dados. Verifique sua conexão.');
-            }
-        }
-
-        // ============================================
-        // RENDER PRODUTOS
-        // ============================================
-        function renderizarProdutos() {
-            gradeProdutos.innerHTML = '';
-            if (!produtos || produtos.length === 0) {
-                gradeProdutos.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#8a7a6a;">Nenhum produto cadastrado</div>';
-                return;
-            }
-
-            produtos.forEach(p => {
-                const card = document.createElement('div');
-                card.className = 'cartao-produto';
-                const imagemHtml = p.imagem ? `<img src="${p.imagem}" alt="${p.nome}">` : p.nome.charAt(0);
-                card.innerHTML = `
-                    <div class="foto-produto">${imagemHtml}</div>
-                    <div class="nome-produto">${p.nome}</div>
-                    <div class="preco-produto">${formatarPreco(p.preco)}</div>
-                `;
-                card.addEventListener('click', () => {
-                    if (sistemaBloqueado) {
-                        alert('⚠️ Sistema bloqueado. Aguarde a liberação.');
-                        return;
-                    }
-                    card.style.transform = 'scale(0.92)';
-                    setTimeout(() => card.style.transform = '', 120);
-                    const existente = carrinho.find(item => item.id === p.id);
-                    if (existente) {
-                        existente.quantidade += 1;
-                    } else {
-                        carrinho.push({ ...p, quantidade: 1 });
-                    }
-                    atualizarCarrinho();
-                });
-                gradeProdutos.appendChild(card);
-            });
-        }
-
-        // ============================================
-        // CARRINHO
-        // ============================================
-        function atualizarCarrinho() {
-            if (carrinho.length === 0) {
-                listaCarrinho.innerHTML = '<div style="padding:12px; color:#8a7a6a; text-align:center; font-size:14px;">Carrinho vazio</div>';
-                totalCarrinho.textContent = 'Total: R$ 0,00';
-                return;
-            }
-
-            let html = '';
-            let total = 0;
-            carrinho.forEach((item, index) => {
-                const subtotal = item.preco * item.quantidade;
-                total += subtotal;
-                html += `
-                    <div class="item-carrinho">
-                        <div class="info-produto">
-                            <strong>${item.nome}</strong>
-                        </div>
-                        <div class="controles">
-                            <button onclick="alterarQuantidade(${index}, -1)">-</button>
-                            <span class="qtd">${item.quantidade}</span>
-                            <button onclick="alterarQuantidade(${index}, 1)">+</button>
-                            <button onclick="excluirItemCarrinho(${index})" class="btn-excluir-item">Excluir</button>
-                        </div>
-                        <div class="preco-item">${formatarPreco(subtotal)}</div>
-                    </div>
-                `;
-            });
-            listaCarrinho.innerHTML = html;
-            totalCarrinho.textContent = `Total: ${formatarPreco(total)}`;
-        }
-
-        window.alterarQuantidade = function(index, delta) {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (index >= 0 && index < carrinho.length) {
-                carrinho[index].quantidade += delta;
-                if (carrinho[index].quantidade <= 0) {
-                    carrinho.splice(index, 1);
-                }
-                atualizarCarrinho();
-            }
-        };
-
-        window.excluirItemCarrinho = function(index) {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (index >= 0 && index < carrinho.length) {
-                carrinho.splice(index, 1);
-                atualizarCarrinho();
-            }
-        };
-
-        // ============================================
-        // ENCERRAR VENDA
-        // ============================================
-        function encerrarVenda() {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (carrinho.length === 0) {
-                alert('⚠️ Adicione produtos ao carrinho primeiro.');
-                return;
-            }
-
-            const total = carrinho.reduce((acc, i) => acc + (i.preco * i.quantidade), 0);
-            const id = gerarIdUnico();
-
-            vendaAtual = {
-                id: id,
-                itens: carrinho.map(i => ({ ...i })),
-                total: total,
-                pagamento: null,
-                status: 'pendente'
-            };
-
-            let html = '';
-            vendaAtual.itens.forEach(item => {
-                html += `
-                    <div class="linha-resumo">
-                        <span>${item.nome} x${item.quantidade}</span>
-                        <span><strong>${formatarPreco(item.preco * item.quantidade)}</strong></span>
-                    </div>
-                `;
-            });
-            html += `
-                <div class="total-resumo">
-                    Total: ${formatarPreco(total)}
-                </div>
-            `;
-            conteudoResumoVenda.innerHTML = html;
-            modalResumoVenda.classList.add('ativo');
-        }
-
-        // ============================================
-        // CANCELAR RESUMO
-        // ============================================
-        function cancelarResumo() {
-            modalResumoVenda.classList.remove('ativo');
-            vendaAtual = null;
-        }
-
-        // ============================================
-        // PROCESSAR PAGAMENTO
-        // ============================================
-        function processarPagamento(pagamento) {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (!vendaAtual) return;
-
-            pagamentoSelecionado = pagamento;
-            vendaAtual.pagamento = pagamento;
-
-            modalResumoVenda.classList.remove('ativo');
-
-            if (pagamento === 'pix') {
-                chavePixModal.textContent = 'Chave Pix: ' + chavePix;
-                titularPixModal.textContent = 'Titular: ' + titularPix;
-                if (qrCodeImage && qrCodeImage !== '') {
-                    qrPlaceholder.innerHTML = `<img src="${qrCodeImage}" alt="QR Code">`;
-                    qrPlaceholder.classList.add('has-image');
-                } else {
-                    qrPlaceholder.innerHTML = 'QR CODE';
-                    qrPlaceholder.classList.remove('has-image');
-                }
-                modalQRCode.classList.add('ativo');
-            } else {
-                modalPagamento.classList.add('ativo');
-            }
-        }
-
-        // ============================================
-        // CONFIRMAR PAGAMENTO
-        // ============================================
-        async function confirmarPagamento() {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (!vendaAtual) return;
-
-            vendaAtual.status = 'pago';
-
-            try {
-                // Salvar venda no Supabase
-                const { error } = await _supabase
-                    .from('vendas')
-                    .insert([{
-                        id: vendaAtual.id,
-                        itens: vendaAtual.itens,
-                        total: vendaAtual.total,
-                        pagamento: vendaAtual.pagamento,
-                        status: 'pago',
-                        data: new Date().toISOString()
-                    }]);
-
-                if (error) throw error;
-
-                vendas.push({ ...vendaAtual });
-                modalPagamento.classList.remove('ativo');
-
-                modalSucesso.classList.add('ativo');
-
-                setTimeout(() => {
-                    modalSucesso.classList.remove('ativo');
-                    finalizarVendaAtual();
-                }, 3000);
-
-                console.log('✅ Venda salva no Supabase!');
-            } catch (error) {
-                console.error('❌ Erro ao salvar venda:', error);
-                alert('Erro ao salvar venda. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // COMPRA CONFIRMADA PIX
-        // ============================================
-        async function compraConfirmadaPix() {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            if (!vendaAtual) return;
-
-            vendaAtual.status = 'pago';
-
-            try {
-                const { error } = await _supabase
-                    .from('vendas')
-                    .insert([{
-                        id: vendaAtual.id,
-                        itens: vendaAtual.itens,
-                        total: vendaAtual.total,
-                        pagamento: vendaAtual.pagamento,
-                        status: 'pago',
-                        data: new Date().toISOString()
-                    }]);
-
-                if (error) throw error;
-
-                vendas.push({ ...vendaAtual });
-                modalQRCode.classList.remove('ativo');
-
-                modalSucesso.classList.add('ativo');
-
-                setTimeout(() => {
-                    modalSucesso.classList.remove('ativo');
-                    finalizarVendaAtual();
-                }, 3000);
-
-                console.log('✅ Venda Pix salva no Supabase!');
-            } catch (error) {
-                console.error('❌ Erro ao salvar venda:', error);
-                alert('Erro ao salvar venda. Tente novamente.');
-            }
-        }
-
-        // ============================================
-        // FINALIZAR VENDA ATUAL
-        // ============================================
-        function finalizarVendaAtual() {
-            carrinho = [];
-            atualizarCarrinho();
-            vendaAtual = null;
-        }
-
-        // ============================================
-        // EVENTOS
-        // ============================================
-        document.addEventListener('click', function(e) {
-            const target = e.target.closest('button');
-            if (!target) return;
-
-            // ENCERRAR VENDA
-            if (target.id === 'btnEncerrarVenda') {
-                encerrarVenda();
-            }
-
-            // CANCELAR RESUMO
-            if (target.id === 'btnCancelarResumo') {
-                cancelarResumo();
-            }
-
-            // OPÇÕES DE PAGAMENTO
-            if (target.classList.contains('btn-pagamento-modal')) {
-                const pagamento = target.dataset.pagamento;
-                processarPagamento(pagamento);
-            }
-
-            // MODAL QR CODE
-            if (target.id === 'btnSeguirQR') {
-                modalQRCode.classList.remove('ativo');
-                modalPagamento.classList.add('ativo');
-            }
-
-            if (target.id === 'btnFecharModalQR') {
-                modalQRCode.classList.remove('ativo');
-                cancelarResumo();
-            }
-
-            // MODAL PAGAMENTO
-            if (target.id === 'btnPagamentoSim') {
-                confirmarPagamento();
-            }
-
-            if (target.id === 'btnPagamentoNao') {
-                modalPagamento.classList.remove('ativo');
-                if (pagamentoSelecionado === 'pix') {
-                    modalQRCode.classList.add('ativo');
-                } else {
-                    modalResumoVenda.classList.add('ativo');
-                }
-            }
-        });
-
-        // ============================================
-        // EVENTOS DIRETOS
-        // ============================================
-        document.getElementById('btnLimparCarrinho').addEventListener('click', () => {
-            if (sistemaBloqueado) {
-                alert('⚠️ Sistema bloqueado.');
-                return;
-            }
-            carrinho = [];
-            atualizarCarrinho();
-            if (vendaAtual) {
-                vendaAtual = null;
-            }
-        });
-
-        // ============================================
-        // INICIALIZAÇÃO
-        // ============================================
-        async function iniciar() {
-            await carregarDados();
-
-            // Verificar bloqueio a cada 5 segundos
-            setInterval(verificarBloqueio, 5000);
-
-            console.log('🚀 Sistema de Atendimento iniciado!');
-            console.log('📱 Aguardando conexão com Supabase...');
-        }
-
-        iniciar();
-    </script>
 </body>
 </html>
